@@ -2,7 +2,7 @@
 
 **ClanActive** is a high-performance fitness social platform designed to turn consistency into a competitive sport. Built for athletes who thrive on accountability, the app combines atomic workout logging with real-time clan-based competition.
 
-Developed as an open-source fitness platform to encourage athletic accountability.
+Developed by **Inder Baldawa** during the **Agentic Premier League** at the **Google office in Bangalore, 2026**.
 
 ---
 
@@ -53,7 +53,9 @@ The app uses a **Technical Dashboard / Data Grid** aesthetic (inspired by modern
 
 ## 🏆 Credits
 
-- **Developer**: Open Source Contributor
+- **Developer**: Inder Baldawa
+- **Event**: Agentic Premier League (APL)
+- **Location**: Google Office, Bangalore
 - **Year**: 2026
 
 *Empowering athletes to stay consistent, one deposit at a time.*
