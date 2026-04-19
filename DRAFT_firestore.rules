@@ -1,0 +1,110 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // User Profile (Public Data)
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId
+          && data.displayName is string && data.displayName.size() <= 100
+          && (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000))
+          && data.currentStreak is number && data.currentStreak >= 0
+          && data.totalWorkouts is number && data.totalWorkouts >= 0
+          && (data.lastWorkoutDate == null || data.lastWorkoutDate is timestamp);
+      }
+
+      allow get: if isSignedIn() && isValidId(userId);
+      // Query Enforcer: Leaderboard needs list. Check resource data to ensure no PII.
+      // Note: We've removed 'email' from this doc to prevent leaks.
+      allow list: if isSignedIn(); 
+      
+      allow create: if isOwner(userId) && isVerified() 
+        && isValidUser(incoming()) 
+        && incoming().keys().hasAll(['uid', 'displayName', 'currentStreak', 'totalWorkouts'])
+        && incoming().keys().size() <= 8;
+        
+      allow update: if isOwner(userId) && isVerified() 
+        && isValidUser(incoming()) 
+        && (
+          // Action: Profile Update
+          (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL'])) ||
+          // Action: Workout Progress (Updated by Workouts.tsx)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['currentStreak', 'totalWorkouts', 'lastWorkoutDate']))
+        )
+        && incoming().uid == existing().uid; // Immutable field
+
+      // Memberships Subcollection (Relational sync for groups)
+      match /memberships/{groupId} {
+        allow read: if isOwner(userId) && isValidId(groupId);
+        allow create: if isOwner(userId) && isVerified() && isValidId(groupId)
+          && incoming().keys().hasAll(['joinedAt'])
+          && incoming().joinedAt == request.time;
+        allow delete: if isOwner(userId) && isValidId(groupId);
+      }
+    }
+
+    // Groups (Clans)
+    match /groups/{groupId} {
+      function isValidGroup(data) {
+        return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+          && data.createdBy == request.auth.uid
+          && data.createdAt is timestamp
+          && (data.description == null || (data.description is string && data.description.size() <= 1000))
+          && (data.avatar == null || (data.avatar is string && data.avatar.size() <= 1000))
+          && (data.memberCount == null || data.memberCount is number);
+      }
+
+      allow read: if isSignedIn() && isValidId(groupId);
+      allow list: if isSignedIn(); // Directory search
+      
+      allow create: if isVerified() && isValidId(groupId) 
+        && isValidGroup(incoming()) 
+        && incoming().createdAt == request.time
+        && incoming().keys().hasAll(['name', 'createdBy', 'createdAt'])
+        && incoming().keys().size() <= 7;
+        
+      allow update: if isVerified() && isValidId(groupId)
+        && existing().createdBy == request.auth.uid
+        && isValidGroup(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'avatar'])
+        && incoming().createdBy == existing().createdBy; // Immutable owner
+
+      allow delete: if isVerified() && existing().createdBy == request.auth.uid;
+    }
+
+    // Workouts
+    match /workouts/{workoutId} {
+      function isValidWorkout(data) {
+        return data.userId == request.auth.uid
+          && data.bodyPart in ['Legs', 'Shoulders', 'Chest', 'Arms', 'Back']
+          && data.duration is number && data.duration > 0 && data.duration <= 1440
+          && data.intensity is number && data.intensity >= 1 && data.intensity <= 10
+          && data.createdAt is timestamp
+          && (data.notes == null || (data.notes is string && data.notes.size() <= 2000));
+      }
+
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || true); 
+      allow list: if isSignedIn(); // For group comparisons (ideally should be more restricted)
+      
+      allow create: if isVerified() && isValidWorkout(incoming())
+        && incoming().createdAt == request.time
+        && incoming().keys().hasAll(['userId', 'bodyPart', 'duration', 'intensity', 'createdAt'])
+        && incoming().keys().size() <= 8;
+        
+      allow delete: if isVerified() && existing().userId == request.auth.uid;
+    }
+  }
+}

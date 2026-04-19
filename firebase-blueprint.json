@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and streak information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "currentStreak": { "type": "number" },
+        "lastWorkoutDate": { "type": "string", "format": "date-time" },
+        "totalWorkouts": { "type": "number" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Group": {
+      "title": "Group (Clan)",
+      "description": "A fitness clan where users compete",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["name", "createdBy"]
+    },
+    "GroupMember": {
+      "title": "Group Member",
+      "description": "Mapping of users to groups with performance metrics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "groupId": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "weeklyPoints": { "type": "number" }
+      },
+      "required": ["userId", "groupId"]
+    },
+    "Workout": {
+      "title": "Workout Record",
+      "description": "Daily workout recording",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bodyPart": { "type": "string", "enum": ["Legs", "Shoulders", "Chest", "Arms", "Back"] },
+        "duration": { "type": "number" },
+        "intensity": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "bodyPart", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Clan details"
+    },
+    "/groups/{groupId}/members/{userId}": {
+      "schema": "GroupMember",
+      "description": "Members of a specific clan"
+    },
+    "/workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "Workout logs"
+    }
+  }
+}
